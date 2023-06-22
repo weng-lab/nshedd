@@ -31,37 +31,32 @@ grid.newpage()
 pushViewport(viewport(layout = grid.layout(1, 3)))
 vplayout <- function(x, y) viewport(layout.pos.row = x, layout.pos.col = y)
 
-ontologies=data.frame(full=c("Ensembl Genes",
-                             "GO Molecular Function",
-                             "GO Biological Process",
-                             "GO Cellular Component",
-                             "Human Phenotype",
-                             "Mouse Phenotype",
-                             "Mouse Phenotype Single KO"),
-                      short=c("Genes","GO MF","GO BP","GO CC","HP","MP","MP KO"))
-
 setwd(dir)
 
 i=1
-wb <- createWorkbook()
+wb <- createWorkbook() ##creates excel workbook
 
-test_regions <- read.table(infile, header=F, sep='\t')
-#format(test_regions, scientific=F)
-bkgd_regions <- read.table(bkgd_file, header=F, sep='\t')
-#format(bkgd_regions, scientific=F)
+test_regions <- read.table(infile, header=F, sep='\t') # read bed file of test regions
+bkgd_regions <- read.table(bkgd_file, header=F, sep='\t') # read bed file of background regions
 
+## submit GREAT job over the internet
 job = submitGreatJob(test_regions, bg = bkgd_regions, species='hg38', version='4.0.4', 
                      includeCuratedRegDoms = TRUE,
                      rule='basalPlusExt', adv_upstream = 5.0, adv_downstream = 1.0, adv_span = 1000.0)
+all_ontologies <- availableOntologies(job)
+tbl = getEnrichmentTables(job, ontology=all_ontologies) ## extract tables from requested job
 
-tbl = getEnrichmentTables(job, ontology=ontologies$full)
-
-for (ontology in ontologies$full) {
+## loop through all available ontologies/results
+for (ontology in all_ontologies) {
   print(ontology)
   df <- as.data.frame(tbl[[ontology]])
+  
+  ## filters out any GO term with fold enrichment < 2
+  ## this is what the GREAT web interface does to limit the appearance of very broad terms
   if (ontology %in% c("GO Molecular Function","GO Biological Process","GO Cellular Component")) {
     df <- df[df$Hyper_Fold_Enrichment > 2,]
   }
+  ## plot wordcloud of ensembl genes
   if (ontology=='Ensembl Genes') {
     png("tmp.png", width = 1000, height = 1000, unit = "px")
     wordcloud(words = df$name, 
@@ -74,7 +69,8 @@ for (ontology in ontologies$full) {
     dev.off()
     p1 <- ggdraw() + draw_image("tmp.png") + ggtitle(paste(infile, ontology))
     print(p1, vp = vplayout(1, 1))
-  } else if (ontology=='GO Biological Process') {
+  } ## plot barplot of top 10 biological processes
+  else if (ontology=='GO Biological Process') {
     p2 <- ggplot(df[1:10,], aes(x=factor(name, levels=df$name), y=-log10(Hyper_Adjp_BH))) + 
       geom_bar(stat="identity",fill='black') + coord_flip() +
       theme_cowplot() + theme(axis.text.x = element_text(size = 8),
@@ -87,8 +83,8 @@ for (ontology in ontologies$full) {
     print(p2, vp = vplayout(1, 2:3))
   }
   sheetname = ontology
-  addWorksheet(wb = wb, sheetName = sheetname, gridLines = FALSE)
-  writeDataTable(wb = wb, sheet = sheetname, x = df)
+  addWorksheet(wb = wb, sheetName = sheetname, gridLines = FALSE) ## add blank sheet to workbook
+  writeDataTable(wb = wb, sheet = sheetname, x = df) ## write gene ontology data to new sheet
 }
 dev.off()
-saveWorkbook(wb, outfile, overwrite = TRUE)
+saveWorkbook(wb, outfile, overwrite = TRUE) ## save workbook (with a sheet for all ontologies) to excel file
