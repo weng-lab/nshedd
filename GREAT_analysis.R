@@ -25,11 +25,8 @@ bkgd_file=args[3]
 outplot=args[4]
 outfile=args[5]
 
-grid.newpage()
-pushViewport(viewport(layout = grid.layout(length(analyses), 3)))
-vplayout <- function(x, y) viewport(layout.pos.row = x, layout.pos.col = y)
-
 ## set up plot - we will be plotting a word cloud of nearby genes and barplot of top 10 biological processes
+pdf(outplot, width = 11, height = 3)
 grid.newpage()
 pushViewport(viewport(layout = grid.layout(1, 3)))
 vplayout <- function(x, y) viewport(layout.pos.row = x, layout.pos.col = y)
@@ -48,12 +45,10 @@ setwd(dir)
 i=1
 wb <- createWorkbook()
 
-print(infile)
-
 test_regions <- read.table(infile, header=F, sep='\t')
-format(test_regions, scientific=F)
+#format(test_regions, scientific=F)
 bkgd_regions <- read.table(bkgd_file, header=F, sep='\t')
-format(bkgd_regions, scientific=F)
+#format(bkgd_regions, scientific=F)
 
 job = submitGreatJob(test_regions, bg = bkgd_regions, species='hg38', version='4.0.4', 
                      includeCuratedRegDoms = TRUE,
@@ -77,7 +72,7 @@ for (ontology in ontologies$full) {
               rot.per=0.35,
               colors=brewer.pal(8, "Dark2"))
     dev.off()
-    p1 <- ggdraw() + draw_image("tmp.png") + ggtitle(paste(analysis, ontology))
+    p1 <- ggdraw() + draw_image("tmp.png") + ggtitle(paste(infile, ontology))
     print(p1, vp = vplayout(1, 1))
   } else if (ontology=='GO Biological Process') {
     p2 <- ggplot(df[1:10,], aes(x=factor(name, levels=df$name), y=-log10(Hyper_Adjp_BH))) + 
@@ -91,12 +86,9 @@ for (ontology in ontologies$full) {
       ylab('-log10(FDR Q-value)') + xlab('Enriched Biological Processes')
     print(p2, vp = vplayout(1, 2:3))
   }
-  sheetname = infile
+  sheetname = ontology
   addWorksheet(wb = wb, sheetName = sheetname, gridLines = FALSE)
   writeDataTable(wb = wb, sheet = sheetname, x = df)
 }
-
+dev.off()
 saveWorkbook(wb, outfile, overwrite = TRUE)
-ggsave(outplot, width=11, height=3)
-
-
