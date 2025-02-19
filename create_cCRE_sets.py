@@ -1,3 +1,6 @@
+## Code to create tissue-specific sets of cCREs, pooling across multiple samples to minimize noise
+## Script includes pulling data from the ENCODE API 
+
 import os
 import json
 import urllib
@@ -21,13 +24,16 @@ def Extract_DNase_Experiment_Metatdata(exp, genome):
     dataDir="https://www.encodeproject.org/experiments/"+exp+"/?format=json"
     json_data=open(dataDir+".json").read()
     data = json.loads(json_data) 
+    ## Noting here that this is the name of the biosample as it would appear in SCREEN
+    biosample_summary = data['biosample_summary']) 
 
     for entry in data["files"]:
         if entry['file_format'] == 'bigWig':
             if entry['analyses'][0]['pipeline_award_rfas'] == ['ENCODE4']:
                 if entry['biological_replicates'] == [1]:
                     acc = entry['accession']
-                    file_path = f'/data/projects/encode/data/{exp}/{acc}.bigWig'
+                    #file_path = f'/data/projects/encode/data/{exp}/{acc}.bigWig'
+                    file_path = f'https://www.encodeproject.org/files/{acc}/@@download/{acc}.bigWig'  ## You can use this path to download bigwigs from ENCODE
                     return(file_path)
 
 def pull_DNase_files(tissue):
@@ -55,7 +61,9 @@ def Extract_ATAC_Experiment_Metatdata(exp, genome):
     #dataDir="/data/projects/encode/json/exps/"+exp
     dataDir="https://www.encodeproject.org/experiments/"+exp+"/?format=json"
     json_data=open(dataDir+".json").read()
-    data = json.loads(json_data) 
+    data = json.loads(json_data)
+    ## Noting here that this is the name of the biosample as it would appear in SCREEN
+    biosample_summary = data['biosample_summary']) 
 
     for entry in data["files"]:
         if entry['file_format'] == 'bigWig':
@@ -63,7 +71,8 @@ def Extract_ATAC_Experiment_Metatdata(exp, genome):
                 if entry['analyses'][0]['pipeline_award_rfas'] == ['ENCODE4']:
                     if entry['biological_replicates'] == [1]:
                         acc = entry['accession']
-                        file_path = f'/data/projects/encode/data/{exp}/{acc}.bigWig'
+                        #file_path = f'/data/projects/encode/data/{exp}/{acc}.bigWig'
+                        file_path = f'https://www.encodeproject.org/files/{acc}/@@download/{acc}.bigWig' ## You can use this path to download bigwigs from ENCODE
                         return(file_path)
 
 def pull_ATAC_files(tissue):
@@ -86,6 +95,12 @@ def pull_ATAC_files(tissue):
         paths.append(Extract_ATAC_Experiment_Metatdata(entry["accession"], genome))
     return(paths)
 
+## Notes on pulling other file types:
+## For ChIP-seq, you can modify the ATAC-seq query (both search for fold-change over control bigwigs),
+## replacing "&assay_title=ATAC-seq" in the url
+## with "&assay_title=Histone+ChIP-seq&target.label=H3K27ac" or 
+## "&assay_title=Histone+ChIP-seq&target.label=H3K4me3" or 
+## "&assay_title=TF+ChIP-seq&target.label=CTCF"
 
 ## Open bigwig and compute signal and z-scores (but just return zscores based on alphabetical order of rDHSs)
 def compute_zscores(bigWig):
@@ -159,10 +174,22 @@ DNase_tissues = ['adrenal+gland','breast','liver','colon','esophagus',
                  'kidney','lung','prostate+gland','skin+of+body','stomach',
                  'testis','thyroid+gland','uterus']
 
+for DNase_tissue in DNase_tissues:
+    print(DNase_tissue)
+    file_paths = pull_DNase_files(DNase_tissue)
+    zscores = run_imap_multiprocessing(compute_zscores, file_paths, 12)
+
+    zscores_df = pd.DataFrame(zscores).transpose()
+    zscores_df.index = anchors
+    zscores_df.columns = [x.replace('/data/projects/encode/data/','').replace('/','-').replace('.bigWig','') for x in file_paths]
+    zscores_df = zscores_df[zscores_df.index.isin(ccres.rDHS)]
+    
+    compute_set(zscores_df, DNase_tissue, 'DNase')
+
+
 ATAC_tissues = ['adrenal+gland','urinary+bladder','breast','liver','colon',
                 'esophagus','kidney','lung','prostate+gland','stomach',
                 'testis','thyroid+gland','uterus', 'brain']
-
 
 for ATAC_tissue in ATAC_tissues:
     print(ATAC_tissue)
@@ -175,15 +202,3 @@ for ATAC_tissue in ATAC_tissues:
     zscores_df = zscores_df[zscores_df.index.isin(ccres.rDHS)]
     
     compute_set(zscores_df, ATAC_tissue, 'ATAC')
-
-for DNase_tissue in DNase_tissues:
-    print(DNase_tissue)
-    file_paths = pull_DNase_files(DNase_tissue)
-    zscores = run_imap_multiprocessing(compute_zscores, file_paths, 12)
-
-    zscores_df = pd.DataFrame(zscores).transpose()
-    zscores_df.index = anchors
-    zscores_df.columns = [x.replace('/data/projects/encode/data/','').replace('/','-').replace('.bigWig','') for x in file_paths]
-    zscores_df = zscores_df[zscores_df.index.isin(ccres.rDHS)]
-    
-    compute_set(zscores_df, DNase_tissue, 'DNase')
