@@ -45,8 +45,8 @@ def pull_DNase_files(tissue):
         "&perturbed=false&perturbed=true&assay_title=DNase-seq" + \
         "&replicates.library.biosample.donor.organism.scientific_name=" + species + \
         "&format=json&limit=all&biosample_ontology.organ_slims=" + tissue + \
-        "&replicates.library.biosample.life_stage=adult&replicates.library.biosample.life_stage=unknown" + \
-        "&biosample_ontology.classification=tissue&biosample_ontology.classification=primary+cell"
+        "&replicates.library.biosample.life_stage=adult&replicates.library.biosample.life_stage=unknown" + \ ## for my purposes, I only wanted adult data, but you can remove this line if you also want to download fetal/child data
+        "&biosample_ontology.classification=tissue&biosample_ontology.classification=primary+cell" ## I also limited to tissues and primary cells because I didn't want data from cell lines
     
     response = urllib.request.urlopen(urlMain)
     data = json.loads(response.read())
@@ -84,8 +84,8 @@ def pull_ATAC_files(tissue):
         "&perturbed=false&perturbed=true&assay_title=ATAC-seq" + \
         "&replicates.library.biosample.donor.organism.scientific_name=" + species + \
         "&format=json&limit=all&biosample_ontology.organ_slims=" + tissue + \
-        "&replicates.library.biosample.life_stage=adult&replicates.library.biosample.life_stage=unknown" + \
-        "&biosample_ontology.classification=tissue&biosample_ontology.classification=primary+cell"
+        "&replicates.library.biosample.life_stage=adult&replicates.library.biosample.life_stage=unknown" + \ ## for my purposes, I only wanted adult data, but you can remove this line if you also want to download fetal/child data
+        "&biosample_ontology.classification=tissue&biosample_ontology.classification=primary+cell" ## I also limited to tissues and primary cells because I didn't want data from cell lines
     
     response = urllib.request.urlopen(urlMain)
     data = json.loads(response.read())
