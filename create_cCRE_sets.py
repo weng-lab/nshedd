@@ -1,4 +1,4 @@
-## Code to create tissue-specific sets of cCREs, pooling across multiple samples to minimize noise
+## Code to create high-confidence tissue-specific sets of cCREs
 ## Script includes pulling data from the ENCODE API 
 
 import os
